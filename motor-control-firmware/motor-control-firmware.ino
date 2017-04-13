@@ -22,9 +22,9 @@ Encoder enc_1(enc_pin_1, enc_pin_2);
 
 //---PID
 double setpoint, input, out;
-double k_p = 3.2;
-double k_i = 12.8;
-double k_d = 0.01;
+double k_p = 0.005;
+double k_i = 0;
+double k_d = 0;
 PID motor_pid_1(&input, &out, &setpoint, k_p, k_i, k_d, DIRECT);
 
 //---velocity test
@@ -56,10 +56,36 @@ Serial.begin(115200);
 //---PID
   motor_pid_1.SetMode(AUTOMATIC);
   motor_pid_1.SetSampleTime(10);
+  setpoint = 10000;
 }
 
 void loop() {
+//CW encoder is negative
+//CCW encoder is positive
+  
+  input = enc_1.read();
+  
+  motor_pid_1.Compute();
 
+  if(input > setpoint){ //positive
+    set_motor_output(in_a_1, in_b_1, pwm_pin_1, 1, out);
+  }
+  else{ //negative
+    set_motor_output(in_a_1, in_b_1, pwm_pin_1, 2, out);
+  }
+
+  Serial.print("Current position = ");
+  Serial.print(input);
+  Serial.print("\t Desired position = ");
+  Serial.print(setpoint);
+  Serial.print("\t PWM output = ");
+  Serial.print(out);
+  Serial.print("\t Raw input = ");
+  Serial.println(sensorValue);
+
+  delay(5);
+
+/*---------------speed control----------------------------
 //---read new speed
   sensorValue = analogRead(analogInPin);
   // map it to the range of the analog out:
@@ -90,6 +116,7 @@ void loop() {
   Serial.println(sensorValue);
   
   delay(5);
+---------------------------------------------------------*/
 }
 
 
