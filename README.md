@@ -9,6 +9,7 @@ More info on my [personal website](http://www.dylanthrush.com/2017/04/13/adroit-
 To Do:
 - Position control (Needs fine tuning)
   - How to control max speeds
+- PID autotuning  
 - Serial communication interface for testing
   - Serial protocol for realzies
 - Homing
