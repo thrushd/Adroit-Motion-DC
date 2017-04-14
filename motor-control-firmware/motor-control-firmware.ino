@@ -22,8 +22,8 @@ Encoder enc_1(enc_pin_1, enc_pin_2);
 
 //---PID
 double setpoint, input, out;
-double k_p = 0.005;
-double k_i = 0;
+double k_p = 0.5;
+double k_i = 0.001;
 double k_d = 0;
 PID motor_pid_1(&input, &out, &setpoint, k_p, k_i, k_d, DIRECT);
 
@@ -41,6 +41,18 @@ const int analogOutPin = 5; // Analog output pin that the LED is attached to
 int sensorValue = 0;        // value read from the pot
 int outputValue = 0;        // value output to the PWM (analog out)
 
+//---position test
+// Define the number of samples to keep track of.  The higher the number,
+// the more the readings will be smoothed, but the slower the output will
+// respond to the input.  Using a constant rather than a normal variable lets
+// use this value to determine the size of the readings array.
+const int numReadings = 100;
+
+int readings[numReadings];      // the readings from the analog input
+int readIndex = 0;              // the index of the current reading
+int total = 0;                  // the running total
+int average = 0;                // the average
+
 void setup() {
 //---debug
 Serial.begin(115200);
@@ -56,22 +68,49 @@ Serial.begin(115200);
 //---PID
   motor_pid_1.SetMode(AUTOMATIC);
   motor_pid_1.SetSampleTime(10);
-  setpoint = 10000;
+  setpoint = 50000;
+
+//---position testing
+  // initialize all the readings to 0:
+  for (int thisReading = 0; thisReading < numReadings; thisReading++) {
+    readings[thisReading] = 0;
+  }
 }
 
 void loop() {
-//CW encoder is negative
-//CCW encoder is positive
+//CW  (1) encoder is positive
+//CCW (2) encoder is negative
+
+//---smoothing the variable setpoint
+  // subtract the last reading:
+  total = total - readings[readIndex];
+  // read from the sensor:
+  readings[readIndex] = analogRead(analogInPin);   
+  // add the reading to the total:
+  total = total + readings[readIndex];
+  // advance to the next position in the array:
+  readIndex = readIndex + 1;
+  // if we're at the end of the array...
+  if (readIndex >= numReadings) {
+    // ...wrap around to the beginning:
+    readIndex = 0;
+  }
+  // calculate the average:
+  sensorValue = total / numReadings;
+
+  setpoint = map(sensorValue, 0, 1023, -10000, 10000);
   
   input = enc_1.read();
   
-  motor_pid_1.Compute();
-
   if(input > setpoint){ //positive
-    set_motor_output(in_a_1, in_b_1, pwm_pin_1, 1, out);
+    motor_pid_1.SetControllerDirection(REVERSE);
+    motor_pid_1.Compute();
+    set_motor_output(in_a_1, in_b_1, pwm_pin_1, 2, out);
   }
   else{ //negative
-    set_motor_output(in_a_1, in_b_1, pwm_pin_1, 2, out);
+    motor_pid_1.SetControllerDirection(DIRECT);
+    motor_pid_1.Compute();
+    set_motor_output(in_a_1, in_b_1, pwm_pin_1, 1, out);
   }
 
   Serial.print("Current position = ");
@@ -79,11 +118,9 @@ void loop() {
   Serial.print("\t Desired position = ");
   Serial.print(setpoint);
   Serial.print("\t PWM output = ");
-  Serial.print(out);
-  Serial.print("\t Raw input = ");
-  Serial.println(sensorValue);
-
-  delay(5);
+  Serial.println(out);
+ 
+  delay(2);
 
 /*---------------speed control----------------------------
 //---read new speed
