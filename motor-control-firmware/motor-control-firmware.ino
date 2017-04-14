@@ -22,7 +22,7 @@ Encoder enc_1(enc_pin_1, enc_pin_2);
 
 //---PID
 double setpoint, input, out;
-double k_p = 0.5;
+double k_p = 0.4;
 double k_i = 0.001;
 double k_d = 0;
 PID motor_pid_1(&input, &out, &setpoint, k_p, k_i, k_d, DIRECT);
