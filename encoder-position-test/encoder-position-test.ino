@@ -23,7 +23,7 @@ Encoder enc_1(enc_pin_1, enc_pin_2);
 //---PID
 double setpoint, input, output;
 double k_p = 0.3;
-double k_i = 0.001;
+double k_i = 0.0001;
 double k_d = 0;
 PID motor_pid_1(&input, &output, &setpoint, k_p, k_i, k_d, DIRECT);
 
@@ -77,31 +77,31 @@ void loop() {
   //CCW (2) encoder is negative
 
   //---smoothing the variable setpoint
-    // subtract the last reading:
-    total = total - readings[readIndex];
-    // read from the sensor:
-    readings[readIndex] = analogRead(analogInPin);
-    // add the reading to the total:
-    total = total + readings[readIndex];
-    // advance to the next position in the array:
-    readIndex = readIndex + 1;
-    // if we're at the end of the array...
-    if (readIndex >= numReadings) {
-      // ...wrap around to the beginning:
-      readIndex = 0;
-    }
-    // calculate the average:
-    sensorValue = total / numReadings;
-  
-    setpoint = map(sensorValue, 0, 1023, -bound, bound);
+//    // subtract the last reading:
+//    total = total - readings[readIndex];
+//    // read from the sensor:
+//    readings[readIndex] = analogRead(analogInPin);
+//    // add the reading to the total:
+//    total = total + readings[readIndex];
+//    // advance to the next position in the array:
+//    readIndex = readIndex + 1;
+//    // if we're at the end of the array...
+//    if (readIndex >= numReadings) {
+//      // ...wrap around to the beginning:
+//      readIndex = 0;
+//    }
+//    // calculate the average:
+//    sensorValue = total / numReadings;
+//  
+//    setpoint = map(sensorValue, 0, 1023, -bound, bound);
 
 //---get setpoint from serial port
-//  if (Serial.available() > 0) {
-//    // read the incoming byte:
-//    incoming_data = Serial.parseInt();
-//  }
-//
-//  setpoint = incoming_data;
+  if (Serial.available() > 0) {
+    // read the incoming byte:
+    incoming_data = Serial.parseInt();
+  }
+
+  setpoint = incoming_data;
   
  
 //---postion control
