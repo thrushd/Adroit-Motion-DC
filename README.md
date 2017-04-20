@@ -1,4 +1,4 @@
-# Adroit-Motion-DC
+# Tetrad Controller
 
 What hopes to be a cheap solution for closed and open loop DC motor control. 
 
