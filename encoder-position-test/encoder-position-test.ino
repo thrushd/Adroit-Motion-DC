@@ -3,11 +3,11 @@
 #include <Encoder.h>
 
 //---motors
-#define in_a_1    7
-#define in_b_1    8
-#define pwm_pin_1 5
-#define cs_pin_1  14
-#define en_pin_1  4
+#define in_a_1    27
+#define in_b_1    28
+#define pwm_pin_1 25
+#define cs_pin_1  31
+#define en_pin_1  24
 
 #define BRAKEVCC  0
 #define CW        1
@@ -15,16 +15,17 @@
 #define BRAKEGND  3
 
 //---encoders
-#define enc_pin_1 2
-#define enc_pin_2 3
+#define enc_pin_1 14
+#define enc_pin_2 15
 long old_position = -999;
 Encoder enc_1(enc_pin_1, enc_pin_2);
+int mult = 1110; //counts per mm for this encoder and linear state, axis R
 
 //---PID
 double setpoint, input, output;
-double k_p = 0.3;
-double k_i = 0.0001;
-double k_d = 0;
+double k_p = 0.5;
+double k_i = 0.001;
+double k_d = 0.001;
 PID motor_pid_1(&input, &output, &setpoint, k_p, k_i, k_d, DIRECT);
 
 //---speed test
@@ -46,6 +47,12 @@ int average = 0;                // the average
 //---serial testing
 int incoming_data = 0; // for incoming serial data
 
+//---buttons test
+#define incr 6
+#define decr 7
+long move_amount = 10; //mm
+double act_pos = 0; //mm
+
 void setup() {
   //---debug
   Serial.begin(9600);
@@ -58,11 +65,12 @@ void setup() {
   pinMode(en_pin_1, OUTPUT);
   digitalWrite(en_pin_1, HIGH);
 
-  analogWriteFrequency(5, 187500);
+  analogWriteFrequency(pwm_pin_1, 187500);
 
   //---PID
   motor_pid_1.SetMode(AUTOMATIC);
   motor_pid_1.SetSampleTime(10);
+  setpoint = 0;
 
 //---filtering
   // initialize all the readings to 0:
@@ -70,6 +78,11 @@ void setup() {
     readings[thisReading] = 0;
   }
 
+  //---buttons
+  pinMode(incr, INPUT);
+  pinMode(decr, INPUT);
+  digitalWrite(incr, INPUT_PULLUP);
+  digitalWrite(decr, INPUT_PULLUP);
 }
 
 void loop() {
@@ -96,14 +109,25 @@ void loop() {
 //    setpoint = map(sensorValue, 0, 1023, -bound, bound);
 
 //---get setpoint from serial port
-  if (Serial.available() > 0) {
-    // read the incoming byte:
-    incoming_data = Serial.parseInt();
+//  if (Serial.available() > 0) {
+//    // read the incoming byte:
+//    incoming_data = Serial.parseInt();
+//  }
+//
+//  setpoint = incoming_data;
+
+//---use buttons to increment or decrement the position
+  if(digitalRead(incr) == LOW){
+    act_pos += move_amount;
+    delay(100);
+  }
+  else if(digitalRead(decr) == LOW){
+    act_pos -= move_amount;
+    delay(100);
   }
 
-  setpoint = incoming_data;
+  setpoint = act_pos * mult; //convert the position in mm to encoder counts
   
- 
 //---postion control
   input = enc_1.read();
 
