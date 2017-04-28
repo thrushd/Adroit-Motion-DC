@@ -6,7 +6,7 @@ Todo
 ## Functions
 
 ### Position Control
-`set_position(motor ID, position)`
+`set_position(motor ID, acceleration, position)`
 
 This will also have movement profiles associated with it (trajectory planning)
 
