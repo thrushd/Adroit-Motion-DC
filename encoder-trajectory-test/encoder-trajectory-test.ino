@@ -21,7 +21,8 @@ int enpin[2] = {24, 33}; // EN: Status of switches output (Analog pin)
 
 //---encoders
 long old_position = -999;
-Encoder enc_1(14, 15);
+//Encoder enc_1(14, 15); //encoder 1
+Encoder enc_1(17, 18); //encoder 2
 double mult = 159.5; //counts per mm or deg
 
 //---PID
@@ -37,7 +38,7 @@ int statpin = 13;
 //---buttons test
 #define incr 6
 #define decr 7
-long move_amount = 180; //mm or deg
+long move_amount = 90 ; //mm or deg
 double act_pos = 0;
 
 //---trajectory mapping
@@ -208,12 +209,12 @@ void loop()
       if (input > setpoint) { //positive
         motor_pid_1.SetControllerDirection(REVERSE);
         motor_pid_1.Compute();
-        set_motor_output(0, 2, output);
+        set_motor_output(1, 2, output);
       }
       else { //negative
         motor_pid_1.SetControllerDirection(DIRECT);
         motor_pid_1.Compute();
-        set_motor_output(0, 1, output);
+        set_motor_output(1, 1, output);
       }
     }
     pos_curr = pos_final; //update position
@@ -229,12 +230,12 @@ void loop()
     if (input > setpoint) { //positive
       motor_pid_1.SetControllerDirection(REVERSE);
       motor_pid_1.Compute();
-      set_motor_output(0, 2, output);
+      set_motor_output(1, 2, output);
     }
     else { //negative
       motor_pid_1.SetControllerDirection(DIRECT);
       motor_pid_1.Compute();
-      set_motor_output(0, 1, output);
+      set_motor_output(1, 1, output);
     }
   }
   //plotting stuff for debugging PIDs, use serial plotter
