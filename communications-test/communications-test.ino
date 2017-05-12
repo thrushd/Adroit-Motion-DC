@@ -1,4 +1,4 @@
-String command;
+float data[3];
 
 void setup() {
   Serial.begin(115200);
@@ -7,27 +7,24 @@ void setup() {
 
 void loop() {
 
-  get_command();
-  
-  if(position_updated){
-    //calculate new trajectory
-    
+  get_command(data);
+
+  for (int i = 0; i < (sizeof(data)/sizeof(float)); i++) {
+    Serial.print(data[i]);
+    Serial.print("   ");
   }
 
-  //every set time interval update the setposition
-
-  //update motor position
+  Serial.println();
+  delay(1);
 
 }
 
-void get_command(void) {
+void get_command(float received_data[]) {
+  String command; //create string to hold command
 
-  while (Serial.available()) //as long as there is data in the buffer
-  {
-    digitalWrite(13, HIGH); //blink the status LED
-
+  while (Serial.available()) { //as long as there is data in the buffer
+    
     char c = Serial.read(); //store one character
-
     command += c; //append the character to the string
   }
 
@@ -44,28 +41,30 @@ void get_command(void) {
     part2 = command.substring(first_index + 1, command.indexOf(",", first_index + 1)); //get axis
     part3 = command.substring(second_index + 1, command.indexOf(",", second_index + 1)); //get position (if available, if not results in command string
 
+    //depending on what command we got set different values
     if (part1.equalsIgnoreCase("setposition")) { //setposition command received
-      int axis = part2.toInt(); //set the current axis
-      float new_position = part3.toFloat(); //set the new position
-      //update the desired position
-      Serial.println("SETPOSITION");
+      received_data[0] = 1;
+      received_data[1] = part2.toFloat(); //set the current axis
+      received_data[2] = part3.toFloat(); //set the new position
+      Serial.println("SET POSITION");
     }
     else if (part1.equalsIgnoreCase("getposition")) { //getposition command received
-      int axis = part2.toInt();
-      //send back current position for selected axis
-      //Serial.println(current_position);
-      Serial.println("GETPOSITION");
+      received_data[0] = 2;
+      received_data[1] = part2.toFloat(); //set the current axis
+      received_data[2] = part3.toFloat(); //set the new position
+      Serial.println("GET POSITION");
     }
     else if (part1.equalsIgnoreCase("home")) { //homing command received
-      int axis = part2.toInt(); //set current axis
-      //do homing command
-      Serial.println("HOMING");
+      received_data[0] = 3;
+      received_data[1] = part2.toFloat(); //set the current axis
+      received_data[2] = part3.toFloat(); //set the new position
+      Serial.println("HOME");
     }
     else {
       Serial.println("ERROR COMMAND NOT RECOGNIZED"); //why are you sending me GARBAGE??!!
+      received_data[0] = 0;
     }
-    digitalWrite(13, LOW); //turn off status LED
-    command = "";
+    command = ""; //reset the command. Prolly not neccisary, but I don't know what's going on
   }
 }
 

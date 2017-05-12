@@ -1,116 +1,123 @@
+//---Get Commands---//
+
 /*
- Will set a motor going in a specific direction the motor will continue 
- going in that direction, at that speed until told to do otherwise.
- 
- direct: Should be between 0 and 3, with the following result
- 0: Brake to VCC
- 1: Clockwise
- 2: CounterClockwise
- 3: Brake to GND
- 
- pwm: should be a value between ? and 255, higher the number, the faster
- it'll go
-----------------
-Control Logic:
-----------------
-           A | B
-Brake VCC: 1   1 
-       CW: 1   0
-      CCW: 0   1
-Brake GND: 0   0
-----------------
- */
+   Input: array of size 3 that will be modified to return the command, axis, and position
+   Returns: nothing
 
-void set_motor_output(uint8_t pin_a, uint8_t pin_b, uint8_t pwm_pin, uint8_t direct, uint8_t pwm){
+   Gets commands being sent over the serial port and parses them. If they match the set commands 
+   it modifies the array passed to it with those values. If it is unrecognized it returns a 0.
 
-    if (direct <=4)
-    {
-      // Set A pin
-      if (direct <=1)
-        digitalWrite(pin_a, HIGH); //0, 1
-      else
-        digitalWrite(pin_a, LOW); //2, 3
+   Index | Name             | Value
+   0     | Command type     | 0-3
+   1     | Selected axis    | 0-1
+   2     | Desired position | Anything 
 
-      // Set B pin
-      if ((direct==0)||(direct==2))
-        digitalWrite(pin_b, HIGH); //0, 2
-      else
-        digitalWrite(pin_b, LOW); //1, 3
+   Command Name     | Value
+   No valid command | 0
+   Set position     | 1
+   Get postion      | 2
+   Home             | 3
 
-      analogWrite(pwm_pin, pwm);
+   An example command sent to the controller:
+   setposition, 1, 143.32
+*/
+
+void get_command(float received_data[]) {
+  
+  String command; //create string to hold command
+
+  while (Serial.available()) { //as long as there is data in the buffer
+
+    char c = Serial.read(); //store one character
+    command += c; //append the character to the string
+  }
+
+  if (command.length() != 0) { //if we have a command we need to parse and update things
+
+    String part1; //string will be split into three parts
+    String part2;
+    String part3;
+
+    int first_index = command.indexOf(","); //need to set the indexes in order to parse properly
+    int second_index = command.indexOf(",", first_index + 1);
+
+    part1 = command.substring(0, first_index); //get command string
+    part2 = command.substring(first_index + 1, command.indexOf(",", first_index + 1)); //get axis
+    part3 = command.substring(second_index + 1, command.indexOf(",", second_index + 1)); //get position (if available, if not results in command string
+
+    //depending on what command we got set different values
+    if (part1.equalsIgnoreCase("setposition")) { //setposition command received
+      received_data[0] = 1;
+      received_data[1] = part2.toFloat(); //set the current axis
+      received_data[2] = part3.toFloat(); //set the new position
+      Serial.println("SETPOSITION");
     }
+    else if (part1.equalsIgnoreCase("getposition")) { //getposition command received
+      received_data[0] = 2;
+      received_data[1] = part2.toFloat(); //set the current axis
+      received_data[2] = part3.toFloat(); //set the new position
+      Serial.println("GETPOSITION");
+    }
+    else if (part1.equalsIgnoreCase("home")) { //homing command received
+      received_data[0] = 3;
+      received_data[1] = part2.toFloat(); //set the current axis
+      received_data[2] = part3.toFloat(); //set the new position
+      Serial.println("HOME");
+    }
+    else {
+      Serial.println("ERROR"); //why are you sending me GARBAGE??!!
+      received_data[0] = 0;
+    }
+  }
 }
 
-//---calculate velocity
+//---Set Motor Output---//
 
-//velocity = velocity(motor to use (encoder), interval to sample over (ms), pulses per rev of the encoder)
-////variables
-//long newposition;
-//long oldposition = 0;
-//unsigned long newtime;
-//unsigned long oldtime = 0;
-//double count = 0;
-//double velocity;
-//int interval = 50;
-//int ppr = 2000;
-//
-//double velocity(Encoder &the_enc){
-// 
-//
-//
-//  Serial.print("Velocity: ");
-//  Serial.println(velocity);
-//  return velocity;
-//}
-  
-  
-//---do PID stuff
+/*
+  Inputs: motor number, direction, pwm value
+  Returns: nothing
 
-//  if(signed_setpoint > 0){ //positive
-//    input = velocity;
-//    setpoint = signed_setpoint;
-//    motor_pid_1.Compute();
-//    set_motor_output(in_a_1, in_b_1, pwm_pin_1, 1, output);
-//    //Serial.println("Positive");
-//  }
-//  else { //negative
-//    input = abs(velocity);
-//    setpoint = abs(signed_setpoint);
-//    motor_pid_1.Compute();
-//    set_motor_output(in_a_1, in_b_1, pwm_pin_1, 2, output);
-//    //Serial.println("Negative");
-//  }
+  Will set a motor going in a specific direction the motor will continue
+  going in that direction, at that speed until told to do otherwise.
 
-//if(signed_setpoint > 0){ //positive
-//    
-//    input = velocity(enc_1, 50, 2000);
-//    
-//    setpoint = signed_setpoint;
-//    motor_pid_1.Compute();
-//    set_motor_output(in_a_1, in_b_1, pwm_pin_1, 1, output);
-//    //Serial.println("Positive");
-//  }
-//  else { //negative
-//    
-//    input = abs(velocity(enc_1, 50, 2000));
-//    
-//    setpoint = abs(signed_setpoint);
-//    motor_pid_1.Compute();
-//    set_motor_output(in_a_1, in_b_1, pwm_pin_1, 2, output);
-//    //Serial.println("Negative");
-//  }
+  direct: Should be between 0 and 3, with the following result
+  0: Brake to VCC
+  1: Clockwise
+  2: CounterClockwise
+  3: Brake to GND
 
-//---postion control
-//  input = enc_1.read();
-//
-//  if (input > setpoint) { //positive
-//    motor_pid_1.SetControllerDirection(REVERSE);
-//    motor_pid_1.Compute();
-//    set_motor_output(in_a_1, in_b_1, pwm_pin_1, 2, output);
-//  }
-//  else { //negative
-//    motor_pid_1.SetControllerDirection(DIRECT);
-//    motor_pid_1.Compute();
-//    set_motor_output(in_a_1, in_b_1, pwm_pin_1, 1, output);
-//  }
+  pwm: should be a value between 0 and 255, higher the number, the faster
+  it'll go
+  ----------------
+  Control Logic:
+  ----------------
+           A | B
+  Brake VCC: 1   1
+       CW: 1   0
+      CCW: 0   1
+  Brake GND: 0   0
+  ----------------
+*/
 
+void set_motor_output(uint8_t motor, uint8_t direct, uint8_t pwm)
+{
+  if (motor <= 1)
+  {
+    if (direct <= 4)
+    {
+      // Set inA[motor]
+      if (direct <= 1)
+        digitalWrite(inApin[motor], HIGH);
+      else
+        digitalWrite(inApin[motor], LOW);
+
+      // Set inB[motor]
+      if ((direct == 0) || (direct == 2))
+        digitalWrite(inBpin[motor], HIGH);
+      else
+        digitalWrite(inBpin[motor], LOW);
+
+      analogWrite(pwmpin[motor], pwm);
+    }
+  }
+}
