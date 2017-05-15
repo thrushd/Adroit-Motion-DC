@@ -23,7 +23,7 @@ int enpin[2] = {24, 33}; // EN: Status of switches output (Analog pin)
 long old_position = -999;
 //Encoder enc_1(14, 15); //encoder 1
 Encoder enc_1(17, 18); //encoder 2
-double mult = 159.5; //counts per mm or deg
+double mult = 1025; //counts per mm or deg
 
 //---PID
 double setpoint, input, output;
@@ -38,7 +38,7 @@ int statpin = 13;
 //---buttons test
 #define incr 6
 #define decr 7
-long move_amount = 90 ; //mm or deg
+long move_amount = 210; //mm or deg
 double act_pos = 0;
 
 //---trajectory mapping
@@ -238,10 +238,11 @@ void loop()
       set_motor_output(1, 1, output);
     }
   }
+  
   //plotting stuff for debugging PIDs, use serial plotter
-  Serial.print(input);
-  Serial.print(",");
-  Serial.println(setpoint);
+  //Serial.print(input);
+  //Serial.print(",");
+  //Serial.println(setpoint);
   //Serial.print(",");
   //Serial.println(output);
   //Serial.println("Idle");

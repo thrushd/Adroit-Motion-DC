@@ -1,154 +1,138 @@
 #include <PID_v1.h>
-#include <PID_AutoTune_v0.h>
 #include <Encoder.h>
+#include <Metro.h>
 
 //---motors
-#define in_a_1    7
-#define in_b_1    8
-#define pwm_pin_1 5
-#define cs_pin_1  14
-#define en_pin_1  4
-
 #define BRAKEVCC  0
 #define CW        1
 #define CCW       2
 #define BRAKEGND  3
 
+/*
+  pin definitions:
+  xxx[0] controls '1' outputs
+  xxx[1] controls '2' outputs */
+int inApin[2] = {27, 30};  // INA: Clockwise input
+int inBpin[2] = {28, 29}; // INB: Counter-clockwise input
+int pwmpin[2] = {25, 32}; // PWM input
+int cspin[2] = {31, 26}; // CS: Current sense ANALOG input
+int enpin[2] = {24, 33}; // EN: Status of switches output (Analog pin)
+
 //---encoders
-#define enc_pin_1 2
-#define enc_pin_2 3
 long old_position = -999;
-Encoder enc_1(enc_pin_1, enc_pin_2);
+Encoder enc_0(14, 15); //encoder 0
+Encoder enc_1(17, 18); //encoder 1
 
 //---PID
-double setpoint, input, output, signed_setpoint;
-double k_p = 0.4;
-double k_i = 0.0001;
-double k_d = 0;
-PID motor_pid_1(&input, &output, &setpoint, k_p, k_i, k_d, DIRECT);
+double setpoint_pos_0, input_pos_0, output_pos_0; //axis 0 positional
+double setpoint_pos_1, input_pos_1, output_pos_1; //axis 0 positional
+double setpoint_vel_0, input_vel_0, output_vel_0, signed_setpoint_vel_0; //axis 0 velocity
+double setpoint_vel_1, input_vel_1, output_vel_1, signed_setpoint_vel_1; //axis 1 velocity
 
-//---velocity test
-long newposition;
+PID motor_pos_0(&setpoint_pos_0, &input_pos_0, &output_pos_0, 1, 0, 0.001, DIRECT); //position PID for axis 0
+PID motor_pos_1(&setpoint_pos_1, &input_pos_1, &output_pos_1, 1, 0, 0.001, DIRECT); //position PID for axis 1
+PID motor_vel_0(&setpoint_vel_0, &input_vel_0, &output_vel_0, 1, 0, 0.001, DIRECT); //velocity PID for axis 0
+PID motor_vel_1(&setpoint_vel_1, &input_vel_1, &output_vel_1, 1, 0, 0.001, DIRECT); //velocity PID for axis 1
+
+float received_data[3]; //data received from the host
+
+//---velocity control
+float velocity = 0;
+long count = 0;
 long oldposition = 0;
-unsigned long newtime;
-unsigned long oldtime = 0;
-double count = 0;
-double velocity;
-int interval = 50;
-int ppr = 2000;
+long newposition;
+int interval = 2;
+int ppr[2] = {2000, 2000};
 
-//---speed test
-//const int analogInPin = 15;  // Analog input pin that the potentiometer is attached to
-//const int analogOutPin = 5; // Analog output pin that the LED is attached to
-//
-//int sensorValue = 0;        // value read from the pot
-//int outputValue = 0;        // value output to the PWM (analog out)
+Metro velocity_metro(interval);
 
-//---position test
-const int numReadings = 100;
-
-int readings[numReadings];      // the readings from the analog input
-int readIndex = 0;              // the index of the current reading
-int total = 0;                  // the running total
-int average = 0;                // the average
-
-//---serial testing
-int incoming_data = 0; // for incoming serial data
+int traj_flag = 0;
+int position_count = 0;
+float current_position[2] = {0, 0}; //array to hold the positions of the axis
+long acceleration[2] = {500000, 1000000}; //accelerations for different axis
+float mult[2] = {159.5, 157.48}; //translation of counts to mm / deg for axis
+int time_step = 1;
+float *position_array;
+int iterations = 0;
 
 void setup() {
   //---debug
   Serial.begin(9600);
 
-  //---motors
-  pinMode(in_a_1, OUTPUT);
-  pinMode(in_b_1, OUTPUT);
-  pinMode(pwm_pin_1, OUTPUT);
-  pinMode(cs_pin_1, OUTPUT);
-  pinMode(en_pin_1, OUTPUT);
-  digitalWrite(en_pin_1, HIGH);
+  // Initialize digital pins as outputs for motors
+  for (int i = 0; i < 2; i++)
+  {
+    pinMode(inApin[i], OUTPUT);
+    pinMode(inBpin[i], OUTPUT);
+    pinMode(pwmpin[i], OUTPUT);
+  }
 
-  analogWriteFrequency(5, 187500);
+  // Initialize braked
+  for (int i = 0; i < 2; i++)
+  {
+    digitalWrite(inApin[i], LOW);
+    digitalWrite(inBpin[i], LOW);
+  }
+
+  //set PWM frequency
+  analogWriteFrequency(pwmpin[0], 187500);
+  analogWriteFrequency(pwmpin[1], 187500);
 
   //---PID
-  motor_pid_1.SetMode(AUTOMATIC);
-  motor_pid_1.SetSampleTime(10);
-  setpoint = 3000;
-  signed_setpoint = 3000;
+  motor_pos_0.SetMode(AUTOMATIC);
+  motor_pos_0.SetSampleTime(1);
+  motor_pos_1.SetMode(AUTOMATIC);
+  motor_pos_1.SetSampleTime(1);
+  motor_vel_0.SetMode(AUTOMATIC);
+  motor_vel_0.SetSampleTime(1);
+  motor_vel_1.SetMode(AUTOMATIC);
+  motor_vel_1.SetSampleTime(1);
 
-  //---pot input
-  // initialize all the readings to 0:
-//  for (int thisReading = 0; thisReading < numReadings; thisReading++) {
-//    readings[thisReading] = 0;
-//  }
-
-  
 }
 
 void loop() {
-  //CW  (1) encoder is positive
-  //CCW (2) encoder is negative
 
-  //---smoothing the variable setpoint
-    // subtract the last reading:
-//    total = total - readings[readIndex];
-//    // read from the sensor:
-//    readings[readIndex] = analogRead(analogInPin);
-//    // add the reading to the total:
-//    total = total + readings[readIndex];
-//    // advance to the next position in the array:
-//    readIndex = readIndex + 1;
-//    // if we're at the end of the array...
-//    if (readIndex >= numReadings) {
-//      // ...wrap around to the beginning:
-//      readIndex = 0;
-//    }
-//    // calculate the average:
-//    sensorValue = total / numReadings;
-//  
-//    setpoint = map(sensorValue, 0, 1023, -10000, 10000);
+  get_command(received_data); //update based on commands received
 
-//---get setpoint from serial port
+  //set new variables based on the new data so I don't have to use stupid indexes
 
-  if (Serial.available() > 0) {
-    // read the incoming byte:
-    incoming_data = Serial.parseInt();
+  if (received_data[0] == 1) { //set position
+    //is a current trajectory calculated for position?
+    if (traj_flag == 0) {
+      iterations = calc_trajectory(current_position[(int)received_data[1]], received_data[2], time_step, acceleration[(int)received_data[1]], position_array);
+      Serial.println(iterations);
+      traj_flag = 1;
+    }
+    else {
+      if (position_count != iterations) {
+        set_position(position_array[position_count], (int)received_data[1]); //move an increment in the array
+        Serial.println(position_array[position_count]);
+        position_count++; //increment positional count
+      }
+      else {
+        received_data[0] = 4; //reset to holding
+        traj_flag = 0; //reset trajectory flag
+        position_count = 0; //reset positional count
+        Serial.println("Movement complete");
+      }
+    }
   }
-
-  setpoint = incoming_data;
-  
-  newtime = millis();
-
-  if(newtime - oldtime >= interval){
-  
-    oldtime = newtime; //set the old time
-    newposition = enc_1.read(); //find the new position
-    count = newposition-oldposition; //find the count since the last interval
-    velocity = ((count/ppr)*60)/(interval/1000); //calculate velocity
-    oldposition = newposition; //set the old position
+  else if (received_data[0] == 2) { //get position
+    //send current position
+    //reset to holding
   }
-  
-  
-  input = velocity;  
-  motor_pid_1.Compute();
-  set_motor_output(in_a_1, in_b_1, pwm_pin_1, 1, output);
-
-
-//---show results (plotter)
-  Serial.print(input);
-  Serial.print(",");
-  Serial.print(output);
-  Serial.print(",");
-  Serial.print(signed_setpoint);
-  delay(1);
-
-//  Serial.print("Current position = ");
-//  Serial.print(input);
-//  Serial.print("\t Desired position = ");
-//  Serial.print(setpoint);
-//  Serial.print("\t PWM output = ");
-//  Serial.println(out);
-//  delay(2);
-
+  else if (received_data[0] == 3) { //home
+    //home
+    //reset to hold
+  }
+  else if (received_data[0] == 0) { //no valid command
+    //Serial.println("The fuck is this?");
+    //delay(1);
+  }
+  else { //hold
+    //Serial.println("holding");
+    //delay(1);
+  }
 }
 
 
