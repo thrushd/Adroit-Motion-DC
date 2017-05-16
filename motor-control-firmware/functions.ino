@@ -84,15 +84,12 @@ void get_command(float received_data[]) {
    step size.
 */
 
-int calc_trajectory(float current_position, float desired_position, int time_step, float acceleration, float *position_array) {
+int calc_trajectory(float current_position, float desired_position, int time_step, float acceleration, float **position_array) {
 
   Serial.print("Desired Position: ");
   Serial.println(desired_position);
   Serial.print("Current Position: ");
   Serial.println(current_position);
-
-  //DEBUG FIX THIS LATER
-  desired_position *= mult[0];
 
   if (current_position != desired_position) { //if we are not where we need to be then we need to calculate a trajectory to get there
 
@@ -110,12 +107,12 @@ int calc_trajectory(float current_position, float desired_position, int time_ste
     float time_b = (current_position - desired_position + velocity * time_final) / velocity; //calculate the time over the parabolic region
 
     //    debugging
-        Serial.print("Calculated time for trajectory: ");
-        Serial.println(time_final);
-        Serial.print("Calculated velocity for trajectory: ");
-        Serial.println(velocity);
-        Serial.print("Calculated time for parabolas: ");
-        Serial.println(time_b);
+    Serial.print("Calculated time for trajectory: ");
+    Serial.println(time_final);
+    Serial.print("Calculated velocity for trajectory: ");
+    Serial.println(velocity);
+    Serial.print("Calculated time for parabolas: ");
+    Serial.println(time_b);
 
     //constants
     float a[3], b[3];
@@ -132,42 +129,120 @@ int calc_trajectory(float current_position, float desired_position, int time_ste
     int iterations = time_final / time_step; //gets the number of iterations for a move based on the time and step size, eg 10 seconds would result in 10000 iterations with a step size of 1ms
 
     //debugging
-    //    Serial.print("Itetrations = ");
-    //    Serial.println(iterations);
+    Serial.print("Number of itetrations: ");
+    Serial.println(iterations);
 
-    position_array = (float*) malloc(sizeof(float) * iterations);
-      
+    *position_array = (float*) malloc(sizeof(float) * iterations);
 
     if (position_array != NULL) {
-     
+
       for ( int i = 0; i < iterations; i++) {
         //set position for the 1st parabola
         if (i <= time_b) {
-          position_array[i] = a[0] + a[1] * i + a[2] * pow(i, 2);
-          Serial.print("First Parabola: ");
-          Serial.println(position_array[i]);
+          (*position_array)[i] = a[0] + a[1] * i + a[2] * pow(i, 2);
+          //          Serial.print("First Parabola: ");
+          //          Serial.println((*position_array)[i]);
         }
         //set position if we are in the linear region
         else if ((i > time_b) && (i <= (time_final - time_b))) {
-          position_array[i] = ((desired_position + current_position - velocity * time_final) / 2 + velocity * i);
-          Serial.print("Linear ");
-          Serial.println(position_array[i]);
+          (*position_array)[i] = ((desired_position + current_position - velocity * time_final) / 2 + velocity * i);
+          //          Serial.print("Linear ");
+          //          Serial.println((*position_array)[i]);
         }
         //set position if we are in the second parabolic region
         else if (i > (time_final - time_b)) {
-          position_array[i] = b[0] + b[1] * i + b[2] * pow(i, 2);
-          Serial.print("Second Parabola ");
-          Serial.println(position_array[i]);
+          (*position_array)[i] = b[0] + b[1] * i + b[2] * pow(i, 2);
+          //          Serial.print("Second Parabola ");
+          //          Serial.println((*position_array)[i]);
         }
       }
+
+      //play it back for debugging
+      //      for (int i = 0; i < iterations; i++) {
+      //        Serial.println((*position_array)[i]);
+      //      }
+
       return iterations;
     }
     else { //oh shit thats no good
+      Serial.print("Position array is null");
       return -1;
     }
   }
 }
 
+//---------------------------------------------------------------------------------------------------------------------- -
+//---Update selected axis---//
+
+void update_axis(int axis) {
+
+  if (axis_status[axis] == 1) { //set position
+    //is a current trajectory calculated for position?
+    if (traj_flag[axis] == 0) {
+
+      iterations[axis] = calc_trajectory(current_position[axis], setposition[axis], time_step, acceleration[axis], &position_array);
+
+      //play it back for debugging
+      //      for (int i = 0; i < iterations[0]; i++) {
+      //        Serial.println(position_array[i]);
+      //      }
+
+      traj_flag[axis] = 1;
+    }
+    else {
+      if (position_count[axis] != iterations[axis]) {
+
+        unsigned long current_time = millis();
+
+        if (current_time - prev_time > interval_test) {
+
+          prev_time = current_time;
+
+          set_position(position_array[position_count[axis]], axis); //move an increment in the array
+          //Serial.println(position_array[position_count[axis]]);
+          position_count[axis]++; //increment positional count
+        }
+        else {
+          //Serial.println("Waiting");
+        }
+      }
+      else {
+        axis_status[axis] = 4; //reset to holding
+        traj_flag[axis] = 0; //reset trajectory flag
+        position_count[axis] = 0; //reset positional count
+        current_position[axis] = setposition[axis]; //update the current position
+        Serial.print("Movement complete for axis: ");
+        Serial.println(axis);
+      }
+    }
+  }
+  else if (axis_status[axis] == 2) { //get position
+    //-----------------------------------------------------------------CHANGE TO ENCODER
+    
+    if(axis == 0){
+      Serial.println(enc_0.read()/mult[axis]);
+    }
+    else if(axis == 1){
+      Serial.println(enc_1.read()/mult[axis]);
+    }
+    
+    axis_status[axis] = 4; //reset to holding
+  }
+  else if (axis_status[axis] == 3) { //home
+    //home
+    axis_status[axis] = 4; //reset to holding
+  }
+  else if (axis_status[axis] == 0) { //no valid command
+    //Serial.println("The fuck is this?");
+    //delay(1);
+    axis_status[axis] = 4;
+  }
+  else { //hold
+    //Serial.println("holding");
+    //delay(1);
+    set_position(current_position[axis], axis);
+  }
+}
 //---------------------------------------------------------------------------------------------------------------------- -
 //---Update Position---//
 
@@ -176,10 +251,11 @@ void set_position(float setpoint, int axis) {
   if (axis == 0) {
 
     input_pos_0 = enc_0.read(); //get actual current position
-    setpoint_pos_0 = setpoint;
+
+    setpoint_pos_0 = (double)setpoint;
 
     //move to new position
-    if (input_pos_0 > setpoint) { //positive
+    if (input_pos_0 > setpoint_pos_0) { //positive
       motor_pos_0.SetControllerDirection(REVERSE);
       motor_pos_0.Compute();
       set_motor_output(axis, 2, output_pos_0);
@@ -188,15 +264,18 @@ void set_position(float setpoint, int axis) {
       motor_pos_0.SetControllerDirection(DIRECT);
       motor_pos_0.Compute();
       set_motor_output(axis, 1, output_pos_0);
+
     }
+
   }
   else if (axis == 1) {
 
     input_pos_1 = enc_1.read(); //get actual current position
+   
     setpoint_pos_1 = setpoint;
 
     //move to new position
-    if (input_pos_1 > setpoint) { //positive
+    if (input_pos_1 > setpoint_pos_1) { //positive
       motor_pos_1.SetControllerDirection(REVERSE);
       motor_pos_1.Compute();
       set_motor_output(axis, 2, output_pos_1);

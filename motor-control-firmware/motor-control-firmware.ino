@@ -29,10 +29,10 @@ double setpoint_pos_1, input_pos_1, output_pos_1; //axis 0 positional
 double setpoint_vel_0, input_vel_0, output_vel_0, signed_setpoint_vel_0; //axis 0 velocity
 double setpoint_vel_1, input_vel_1, output_vel_1, signed_setpoint_vel_1; //axis 1 velocity
 
-PID motor_pos_0(&setpoint_pos_0, &input_pos_0, &output_pos_0, 1, 0, 0.001, DIRECT); //position PID for axis 0
-PID motor_pos_1(&setpoint_pos_1, &input_pos_1, &output_pos_1, 1, 0, 0.001, DIRECT); //position PID for axis 1
-PID motor_vel_0(&setpoint_vel_0, &input_vel_0, &output_vel_0, 1, 0, 0.001, DIRECT); //velocity PID for axis 0
-PID motor_vel_1(&setpoint_vel_1, &input_vel_1, &output_vel_1, 1, 0, 0.001, DIRECT); //velocity PID for axis 1
+PID motor_pos_0(&input_pos_0, &output_pos_0, &setpoint_pos_0, 1, 0, 0.008, DIRECT); //position PID for axis 0 //theta
+PID motor_pos_1(&input_pos_1, &output_pos_1, &setpoint_pos_1, 0.5, 0, 0.002, DIRECT); //position PID for axis 1 //z
+PID motor_vel_0(&input_vel_0, &output_vel_0, &setpoint_vel_0, 1, 0, 0.001, DIRECT); //velocity PID for axis 0
+PID motor_vel_1(&input_vel_1, &output_vel_1, &setpoint_vel_1, 1, 0, 0.001, DIRECT); //velocity PID for axis 1
 
 float received_data[3]; //data received from the host
 
@@ -44,16 +44,27 @@ long newposition;
 int interval = 2;
 int ppr[2] = {2000, 2000};
 
-Metro velocity_metro(interval);
+Metro velocity_metro = Metro(interval);
 
-int traj_flag = 0;
-int position_count = 0;
+int time_step = 1; //ms
+Metro motor_movement = Metro(time_step);
+
+int traj_flag[2]; //whether or not the trajectory needs to be calculated
+int axis_status[2]; //flag used to hold the current status of each axis
+float setposition[2]; //the position set by the master
+int iterations[2]; //returned number of iterations needed for movement
+int position_count[2]; //used to keep track of where we are in the movement
 float current_position[2] = {0, 0}; //array to hold the positions of the axis
-long acceleration[2] = {500000, 1000000}; //accelerations for different axis
+long acceleration[2] = {300000, 500000}; //accelerations for different axis
 float mult[2] = {159.5, 157.48}; //translation of counts to mm / deg for axis
-int time_step = 1;
+
 float *position_array;
-int iterations = 0;
+
+//-------------------------------------------------------------------------------------------
+long prev_time = 0;
+long interval_test = time_step;
+
+
 
 void setup() {
   //---debug
@@ -92,47 +103,27 @@ void setup() {
 
 void loop() {
 
-  get_command(received_data); //update based on commands received
+  if (Serial.available()) {
 
-  //set new variables based on the new data so I don't have to use stupid indexes
+    get_command(received_data); //update if there is data
 
-  if (received_data[0] == 1) { //set position
-    //is a current trajectory calculated for position?
-    if (traj_flag == 0) {
-      iterations = calc_trajectory(current_position[(int)received_data[1]], received_data[2], time_step, acceleration[(int)received_data[1]], position_array);
-      Serial.println(iterations);
-      traj_flag = 1;
+    if (received_data[1] == 0) { //axis 0
+      axis_status[0] = received_data[0]; //update the command
+      setposition[0] = received_data[2]*mult[0]; //update position
+    }
+    else if (received_data[1] == 1) { //axis 1
+      axis_status[1] = received_data[0]; //update the command
+      setposition[1] = received_data[2]*mult[1]; //update position
     }
     else {
-      if (position_count != iterations) {
-        set_position(position_array[position_count], (int)received_data[1]); //move an increment in the array
-        Serial.println(position_array[position_count]);
-        position_count++; //increment positional count
-      }
-      else {
-        received_data[0] = 4; //reset to holding
-        traj_flag = 0; //reset trajectory flag
-        position_count = 0; //reset positional count
-        Serial.println("Movement complete");
-      }
+      Serial.println("Cannot update status flags");
     }
   }
-  else if (received_data[0] == 2) { //get position
-    //send current position
-    //reset to holding
-  }
-  else if (received_data[0] == 3) { //home
-    //home
-    //reset to hold
-  }
-  else if (received_data[0] == 0) { //no valid command
-    //Serial.println("The fuck is this?");
-    //delay(1);
-  }
-  else { //hold
-    //Serial.println("holding");
-    //delay(1);
-  }
+
+  //only axis 0 will be updating for now
+  update_axis(0); //update axis 0
+  update_axis(1); //update axis 1
+  
 }
 
 
