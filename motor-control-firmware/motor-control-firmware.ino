@@ -51,17 +51,22 @@ Metro motor_movement = Metro(time_step);
 
 int traj_flag[2]; //whether or not the trajectory needs to be calculated
 int axis_status[2]; //flag used to hold the current status of each axis
-float setposition[2]; //the position set by the master
+float target_position[2]; //the position set by the master
 int iterations[2]; //returned number of iterations needed for movement
 int position_count[2]; //used to keep track of where we are in the movement
 float current_position[2] = {0, 0}; //array to hold the positions of the axis
 long acceleration[2] = {300000, 500000}; //accelerations for different axis
 float mult[2] = {159.5, 157.48}; //translation of counts to mm / deg for axis
 
-float *position_array;
+float *position_array_0;
+float *position_array_1;
+
+//These will change depending on board, basically an address for the different axis
+#define axis_0 0 //theta
+#define	axis_1 1 //z
 
 //-------------------------------------------------------------------------------------------
-long prev_time = 0;
+long prev_time[2];
 long interval_test = time_step;
 
 
@@ -69,6 +74,7 @@ long interval_test = time_step;
 void setup() {
   //---debug
   Serial.begin(9600);
+  Serial2.begin(9600);
 
   // Initialize digital pins as outputs for motors
   for (int i = 0; i < 2; i++)
@@ -107,13 +113,13 @@ void loop() {
 
     get_command(received_data); //update if there is data
 
-    if (received_data[1] == 0) { //axis 0
+    if (received_data[1] == axis_0) { //axis 0
       axis_status[0] = received_data[0]; //update the command
-      setposition[0] = received_data[2]*mult[0]; //update position
+      target_position[0] = received_data[2]*mult[0]; //update position
     }
-    else if (received_data[1] == 1) { //axis 1
+    else if (received_data[1] == axis_1) { //axis 1
       axis_status[1] = received_data[0]; //update the command
-      setposition[1] = received_data[2]*mult[1]; //update position
+      target_position[1] = received_data[2]*mult[1]; //update position
     }
     else {
       Serial.println("Cannot update status flags");
