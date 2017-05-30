@@ -34,6 +34,8 @@ void get_command(float received_data[]) {
 
 	if (command.length() != 0) { //if we have a command we need to parse and update things
 
+		
+	
 		String part1; //string will be split into three parts
 		String part2;
 		String part3;
@@ -216,9 +218,11 @@ void update_axis(int axis) {
 				position_count[axis] = 0; //reset positional count
 				current_position[axis] = target_position[axis]; //update the current position
 				
-				Serial.print("Movement complete for axis: ");
-				Serial.println(axis);
-				
+//				Serial.print("Movement complete for axis: ");
+//				Serial.println(axis);
+        Serial.println("OK");
+        
+        
 				if(axis == 0){
 					free(position_array_0);
 				}
@@ -242,7 +246,8 @@ void update_axis(int axis) {
 		axis_status[axis] = 4; //reset to holding
 	}
 	else if (axis_status[axis] == 3) { //home
-		//home
+		home_axis(axis);
+    Serial.println("OK");
 		axis_status[axis] = 4; //reset to holding
 	}
 	else if (axis_status[axis] == 0) { //no valid command
@@ -306,86 +311,93 @@ void set_position(float setpoint, int axis) {
 //---Set Velocity---//
 void set_velocity(float signed_setpoint, int axis) {
 
-	if (axis == 0) {
-		if (velocity_metro.check()) {
+ if (axis == 0) {
 
-			newposition = enc_0.read(); //find the new position
-			count = newposition - oldposition; //find the count since the last interval
-			velocity = ((count / ppr[0]) * 60) / (interval / 1000); //calculate velocity
-			oldposition = newposition; //set the old position
-		}
+    unsigned long current_time = millis();
 
-		//---do PID stuff
-		if (signed_setpoint > 0) { //positive
-			input_vel_0 = velocity;
-			setpoint_vel_0 = signed_setpoint;
-			motor_vel_0.Compute();
-			set_motor_output(axis, 1, output_vel_0);
-		}
-		else { //negative
-			input_vel_0 = abs(velocity);
-			setpoint_vel_0 = abs(signed_setpoint);
-			motor_vel_0.Compute();
-			set_motor_output(axis, 2, output_vel_0);
-		}
-	}
-	else if (axis == 1) {
-		if (velocity_metro.check()) {
+    if (current_time - prev_time[axis] > interval_test) {
 
-			newposition = enc_1.read(); //find the new position
-			count = newposition - oldposition; //find the count since the last interval
-			velocity = ((count / ppr[1]) * 60) / (interval / 1000); //calculate velocity
-			oldposition = newposition; //set the old position
-		}
-		//---do PID stuff
-		if (signed_setpoint > 0) { //positive
-			input_vel_1 = velocity;
-			setpoint_vel_1 = signed_setpoint;
-			motor_vel_1.Compute();
-			set_motor_output(axis, 1, output_vel_1);
-		}
-		else { //negative
-			input_vel_1 = abs(velocity);
-			setpoint_vel_1 = abs(signed_setpoint);
-			motor_vel_1.Compute();
-			set_motor_output(axis, 2, output_vel_1);
-			//Serial.println("Negative");
-		}
-	}
-	else {
-		Serial.println("No valid axis given for velocity move");
-	}
+      prev_time[axis] = current_time;
+
+      newposition = enc_0.read(); //find the new position
+      count = newposition - oldposition; //find the count since the last interval
+      velocity = ((count / ppr[0]) * 60) / (interval / 1000); //calculate velocity
+      oldposition = newposition; //set the old position
+    }
+
+
+    //---do PID stuff
+    if (signed_setpoint > 0) { //positive
+      input_vel_0 = velocity;
+      setpoint_vel_0 = signed_setpoint;
+      motor_vel_0.Compute();
+      set_motor_output(axis, 2, output_vel_0);
+    }
+    else { //negative
+      input_vel_0 = abs(velocity);
+      setpoint_vel_0 = abs(signed_setpoint);
+      motor_vel_0.Compute();
+      set_motor_output(axis, 1, output_vel_0);
+    }
+  }
+  else if (axis == 1) {
+
+    unsigned long current_time = millis();
+
+    if (current_time - prev_time[axis] > interval_test) {
+
+      prev_time[axis] = current_time;
+
+      newposition = enc_1.read(); //find the new position
+      count = newposition - oldposition; //find the count since the last interval
+      velocity = ((count / ppr[1]) * 60) / (interval / 1000); //calculate velocity
+      oldposition = newposition; //set the old position
+    }
+
+    //---do PID stuff
+    if (signed_setpoint > 0) { //positive
+      input_vel_1 = velocity;
+      setpoint_vel_1 = signed_setpoint;
+      motor_vel_1.Compute();
+      set_motor_output(axis, 1, output_vel_1);
+    }
+    else { //negative
+      input_vel_1 = abs(velocity);
+      setpoint_vel_1 = abs(signed_setpoint);
+      motor_vel_1.Compute();
+      set_motor_output(axis, 2, output_vel_1);
+      //Serial.println("Negative");
+    }
+  }
+  else {
+    Serial.println("No valid axis given for velocity move");
+  }
 }
 
 //---Homing---//
 
-const int axis_limits[2] = {6, 7}; //array to hold limit switch pin info
-
 void home_axis(int axis) {
 
-	while (digitalRead(axis_limits[axis])) { //quickly advance to limit switch
-		set_velocity(500, axis);
-	}
+  //Serial.println("Beginning home routine");
 
-	set_velocity(0, axis); //stop moving
+  while (digitalRead(axis_limits[axis]) == HIGH) { //quickly advance to limit switch
+    set_velocity(1, axis);
+  }
 
-	motor_off(axis); //no really, stop moving
+  set_velocity(0, axis); //stop moving
 
-	current_position[axis] = 0; //reset current position
+  motor_off(axis); //no really, stop moving
 
-	set_position(-10, axis); // move back 10 degrees or mm
+  current_position[axis] = 0; //reset current position
 
-	while (digitalRead(axis_limits[axis])) { //slowly advance to limit switch
-		set_velocity(50, axis);
-	}
+  if (axis == 0) {
+    enc_0.write(0);
+  }
+  else {
+    enc_1.write(0);
+  }
 
-	set_velocity(0, axis); //stop moving
-
-	motor_off(axis); //no really, stop moving
-
-	current_position[axis] = 0; //reset current position
-
-	set_position(-10, axis); // set final position here
+  //Serial.println("Home complete");
 }
 
 //---Set Motor Output---//

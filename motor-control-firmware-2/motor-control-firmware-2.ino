@@ -8,6 +8,8 @@
 #define CCW       2
 #define BRAKEGND  3
 
+#define fire_pin 1
+
 /*
   pin definitions:
   xxx[0] controls '1' outputs
@@ -29,8 +31,8 @@ double setpoint_pos_1, input_pos_1, output_pos_1; //axis 0 positional
 double setpoint_vel_0, input_vel_0, output_vel_0, signed_setpoint_vel_0; //axis 0 velocity
 double setpoint_vel_1, input_vel_1, output_vel_1, signed_setpoint_vel_1; //axis 1 velocity
 
-PID motor_pos_0(&input_pos_0, &output_pos_0, &setpoint_pos_0, 1, 0, 0.008, DIRECT); //position PID for axis 0 //theta
-PID motor_pos_1(&input_pos_1, &output_pos_1, &setpoint_pos_1, 0.5, 0, 0.002, DIRECT); //position PID for axis 1 //z
+PID motor_pos_0(&input_pos_0, &output_pos_0, &setpoint_pos_0, 0.8, 0, 0.008, DIRECT); //position PID for axis 0 //theta
+PID motor_pos_1(&input_pos_1, &output_pos_1, &setpoint_pos_1, 0.4, 0, 0.001, DIRECT); //position PID for axis 1 //z
 PID motor_vel_0(&input_vel_0, &output_vel_0, &setpoint_vel_0, 50, 0, 0.001, DIRECT); //velocity PID for axis 0
 PID motor_vel_1(&input_vel_1, &output_vel_1, &setpoint_vel_1, 100, 0, 0.001, DIRECT); //velocity PID for axis 1
 
@@ -55,8 +57,8 @@ float target_position[2]; //the position set by the master
 int iterations[2]; //returned number of iterations needed for movement
 int position_count[2]; //used to keep track of where we are in the movement
 float current_position[2] = {0, 0}; //array to hold the positions of the axis
-long acceleration[2] = {300000, 500000}; //accelerations for different axis
-float mult[2] = {159.5, 157.48}; //translation of counts to mm / deg for axis
+long acceleration[2] = {1000000, 10000000}; //accelerations for different axis
+float mult[2] = {1025, 517}; //translation of counts to mm / deg for axis
 
 float *position_array_0;
 float *position_array_1;
@@ -70,6 +72,7 @@ const int axis_limits[2] = {2, 11}; //array to hold limit switch pin info
 //-------------------------------------------------------------------------------------------
 long prev_time[2];
 long interval_test = time_step;
+
 
 
 void setup() {
@@ -105,6 +108,9 @@ void setup() {
   motor_vel_0.SetSampleTime(1);
   motor_vel_1.SetMode(AUTOMATIC);
   motor_vel_1.SetSampleTime(1);
+
+  pinMode(fire_pin, OUTPUT);
+  digitalWrite(fire_pin, HIGH);
 
 }
 
