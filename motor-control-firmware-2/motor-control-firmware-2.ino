@@ -57,8 +57,8 @@ float target_position[2]; //the position set by the master
 int iterations[2]; //returned number of iterations needed for movement
 int position_count[2]; //used to keep track of where we are in the movement
 float current_position[2] = {0, 0}; //array to hold the positions of the axis
-long acceleration[2] = {1000000, 10000000}; //accelerations for different axis
-float mult[2] = {1025, 517}; //translation of counts to mm / deg for axis
+long acceleration[2] = {1000000, 300000}; //accelerations for different axis
+float mult[2] = {1025, 400}; //translation of counts to mm / deg for axis
 
 float *position_array_0;
 float *position_array_1;

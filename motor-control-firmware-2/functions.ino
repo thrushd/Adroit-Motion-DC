@@ -246,8 +246,6 @@ void update_axis(int axis) {
       Serial.println(enc_1.read() / mult[axis]);
     }
 
-    Serial.println("OK");
-
     axis_status[axis] = 4; //reset to holding
   }
   else if (axis_status[axis] == 3) { //home
@@ -364,13 +362,13 @@ void set_velocity(float signed_setpoint, int axis) {
       input_vel_1 = velocity;
       setpoint_vel_1 = signed_setpoint;
       motor_vel_1.Compute();
-      set_motor_output(axis, 1, output_vel_1);
+      set_motor_output(axis, 2, output_vel_1);
     }
     else { //negative
       input_vel_1 = abs(velocity);
       setpoint_vel_1 = abs(signed_setpoint);
       motor_vel_1.Compute();
-      set_motor_output(axis, 2, output_vel_1);
+      set_motor_output(axis, 1, output_vel_1);
       //Serial.println("Negative");
     }
   }

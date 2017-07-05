@@ -30,7 +30,7 @@ double setpoint_vel_0, input_vel_0, output_vel_0, signed_setpoint_vel_0; //axis 
 double setpoint_vel_1, input_vel_1, output_vel_1, signed_setpoint_vel_1; //axis 1 velocity
 
 PID motor_pos_0(&input_pos_0, &output_pos_0, &setpoint_pos_0, 1, 0, 0.008, DIRECT); //position PID for axis 0 //theta
-PID motor_pos_1(&input_pos_1, &output_pos_1, &setpoint_pos_1, 0.5, 0, 0.002, DIRECT); //position PID for axis 1 //z
+PID motor_pos_1(&input_pos_1, &output_pos_1, &setpoint_pos_1, 0.5, 0, 0.004, DIRECT); //position PID for axis 1 //z
 PID motor_vel_0(&input_vel_0, &output_vel_0, &setpoint_vel_0, 50, 0, 0.001, DIRECT); //velocity PID for axis 0
 PID motor_vel_1(&input_vel_1, &output_vel_1, &setpoint_vel_1, 100, 0, 0.001, DIRECT); //velocity PID for axis 1
 
@@ -42,7 +42,7 @@ long count = 0;
 long oldposition = 0;
 long newposition;
 int interval = 2;
-int ppr[2] = {2000, 2000};
+int ppr[2] = {4000, 2000};
 
 //Metro velocity_metro = Metro(interval);
 
@@ -55,7 +55,7 @@ float target_position[2]; //the position set by the master
 int iterations[2]; //returned number of iterations needed for movement
 int position_count[2]; //used to keep track of where we are in the movement
 float current_position[2] = {0, 0}; //array to hold the positions of the axis
-long acceleration[2] = {300000, 500000}; //accelerations for different axis
+long acceleration[2] = {100000, 800000}; //accelerations for different axis
 float mult[2] = {159.5, 157.48}; //translation of counts to mm / deg for axis
 
 float *position_array_0;

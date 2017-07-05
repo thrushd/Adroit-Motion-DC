@@ -34,8 +34,6 @@ void get_command(float received_data[]) {
 
 	if (command.length() != 0) { //if we have a command we need to parse and update things
 
-		
-	
 		String part1; //string will be split into three parts
 		String part2;
 		String part3;
@@ -234,7 +232,6 @@ void update_axis(int axis) {
 		}
 	}
 	else if (axis_status[axis] == 2) { //get position
-		//-----------------------------------------------------------------CHANGE TO ENCODER
 		
 		if(axis == 0){
 			Serial.println(enc_0.read()/mult[axis]);
